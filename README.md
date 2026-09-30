@@ -11,6 +11,9 @@ The specification is [`VIGILANS_SPEC.md`](../specs/VIGILANS_SPEC.md); the viewer
 Before using in any meaningful way, an API is required to turn data from sensors & sensor hubs to 
 the format used by Vigilans. 
 
+Users must also specify under libraries the specific parameters of entities to be identified. I.E. 
+this signal pattern equates to a UAS Operator, etc.
+
 ## Quickstart
 
 Docker only:
