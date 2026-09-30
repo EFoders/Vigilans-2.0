@@ -18,8 +18,7 @@ docker compose --profile videns up --build
 
 Three containers: a **sensor hub** simulating the `mixed` scenario and sending
 `observation.v1` over HTTP, **Vigilans** taking it on :8092, and **Videns** on
-http://127.0.0.1:8081. The hub is swappable for real equipment
-([ADR-0010](docs/adr/0010-inputs-outside-the-engine.md)). Another scenario, faster:
+http://127.0.0.1:8081. The hub is swappable for real equipment. Another scenario, faster:
 `HUB_SCENARIO=cp_departure HUB_RATE=4 docker compose --profile videns up --build`.
 Scenarios are `scenario.v2` — the spec for generators is [docs/scenario-spec.md](docs/scenario-spec.md).
 
