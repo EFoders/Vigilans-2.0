@@ -2,7 +2,7 @@
 
 Vigilans turns RF observations from several independent sources into a small number of
 **entities** — who is transmitting, probably what they are, and which of them are working
-together — and publishes that picture to [Videns](../Videns) (the viewer) and to TAK.
+together — and publishes that picture to Videns and to TAK.
 
 Receive-only. Externals only, never content. Synthetic and unclassified in the repository.
 The specification is [`VIGILANS_SPEC.md`](../specs/VIGILANS_SPEC.md); the viewer's is
