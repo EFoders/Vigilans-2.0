@@ -8,6 +8,9 @@ Receive-only. Externals only, never content. Synthetic and unclassified in the r
 The specification is [`VIGILANS_SPEC.md`](../specs/VIGILANS_SPEC.md); the viewer's is
 [`VIDENS_SPEC.md`](../specs/VIDENS_SPEC.md).
 
+Before using in any meaningful way, an API is required to turn data from sensors & sensor hubs to 
+the format used by Vigilans. 
+
 ## Quickstart
 
 Docker only:
