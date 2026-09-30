@@ -1,0 +1,14 @@
+# The mixed scenario, with an operator's declared assumption for the source that reports no
+# uncertainty (spec §5.5). Compare the picture's notices with a plain `--scenario mixed`
+# run: LEGACY-DF's bearings become "assumed", labelled as such, instead of "unreported".
+#
+#   vigilans run --config vigilans/config/assumed.toml
+
+[[inputs]]
+kind = "sim"
+scenario = "mixed"
+
+[sources.LEGACY-DF]
+label = "Legacy DF pair (operator-assumed uncertainty)"
+assumed_bearing_sigma_deg = 5.0
+assumption_note = "Synthetic example: the operator judges these bearings good to about 5 degrees. Not a measurement."

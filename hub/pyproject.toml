@@ -1,0 +1,30 @@
+[project]
+name = "vigilans-hub"
+version = "0.1.0"
+description = "A simulated sensor hub: plays scenario.v2 worlds, or replays recordings, and sends observation.v1 to Vigilans over the network"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+  "vigilans-contract",
+  # Geodesy and time helpers only. The hub never runs the engine, and the engine never
+  # imports the hub (architecture test): truth stays on this side.
+  "vigilans",
+  "numpy>=2",
+  "pyyaml>=6",
+  "aiohttp>=3.10",
+]
+
+[project.scripts]
+vigilans-hub = "vigilans_hub.cli:main"
+
+[tool.uv.sources]
+vigilans-contract = { workspace = true }
+vigilans = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vigilans_hub"]

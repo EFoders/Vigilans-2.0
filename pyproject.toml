@@ -1,0 +1,69 @@
+# The Vigilans 2.0 workspace: the contract package and the engine, locked together so a
+# contract change and its consumer move in one commit (VIDENS_SPEC.md section 12).
+# Videns joins as videns/ with its own toolchain; it is not a Python member.
+
+[tool.uv.workspace]
+members = ["contract", "vigilans", "hub"]
+
+[tool.uv.sources]
+vigilans-contract = { workspace = true }
+vigilans = { workspace = true }
+vigilans-hub = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "vigilans",
+  "vigilans-contract",
+  "vigilans-hub",
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=5",
+  "hypothesis>=6",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "types-PyYAML",
+  "types-jsonschema",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+# Compound assertions read better than a ladder of single ones in these tests.
+"**/tests/**" = ["PT018"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["vigilans", "vigilans_contract", "vigilans_hub"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["contract/src", "contract/tests", "contract/tools", "vigilans/src", "vigilans/tests", "hub/src", "hub/tests"]
+mypy_path = ["contract/src", "vigilans/src", "vigilans/tests", "hub/src"]
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["pyproj.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["contract/tests", "vigilans/tests", "hub/tests"]
+pythonpath = ["vigilans/tests"]
+# Default (prepend) import mode: importlib mode names vigilans/tests/conftest.py
+# "vigilans.tests.conftest" and shadows the real `vigilans` package.
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "contract: schema and fixture conformance",
+  "architecture: import and layering rules",
+  "slow: long-running scenario tests",
+]
+
+[tool.coverage.run]
+source_pkgs = ["vigilans", "vigilans_contract", "vigilans_hub"]
+branch = true

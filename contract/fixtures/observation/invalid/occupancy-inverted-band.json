@@ -1,0 +1,23 @@
+{
+  "reason": "A band's lower edge is below its upper edge.",
+  "expect": "min_hz is greater than max_hz",
+  "message": {
+    "schema": "observation.v1",
+    "kind": "occupancy",
+    "observation_id": "fx-o-0001",
+    "source_id": "SRC-DF",
+    "sensor_id": "DF-1",
+    "t": "2026-01-01T00:05:00Z",
+    "band": {
+      "min_hz": 410000000.0,
+      "max_hz": 400000000.0
+    },
+    "noise_floor_dbm": -104.5,
+    "occupied_fraction": 0.12,
+    "provenance": {
+      "adapter": "fixture-adapter",
+      "adapter_version": "0.0.1",
+      "contract": "observation.v1"
+    }
+  }
+}

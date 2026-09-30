@@ -1,0 +1,666 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:vigilans:contract:picture.v0",
+  "title": "PictureMessage",
+  "description": "picture.v0: what Vigilans publishes and Videns consumes. UNSTABLE: breaking changes are allowed until it is frozen as picture.v1 (VIDENS_SPEC.md section 6.1). Conventions (section 6.2): WGS84 geodetic positions; angles in degrees true, clockwise from north; units in field names; timezone-aware UTC times ending in Z; uncertainties 1-sigma unless named otherwise; every uncertainty carries a basis.",
+  "oneOf": [
+    { "$ref": "#/definitions/hello" },
+    { "$ref": "#/definitions/snapshot" },
+    { "$ref": "#/definitions/delta" },
+    { "$ref": "#/definitions/cot" },
+    { "$ref": "#/definitions/heartbeat" },
+    { "$ref": "#/definitions/notice" }
+  ],
+  "definitions": {
+    "utc_time": {
+      "title": "UtcTime",
+      "description": "ISO 8601, timezone-aware, UTC, with a literal Z.",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "text": {
+      "title": "Text",
+      "description": "Human-readable text. Rendered as text, never as markup.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "reasons": {
+      "title": "Reasons",
+      "type": "array",
+      "items": { "$ref": "#/definitions/text" },
+      "maxItems": 50
+    },
+    "confidence": {
+      "title": "Confidence",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "angle_deg": {
+      "title": "AngleDeg",
+      "description": "Degrees true, clockwise from north.",
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 360
+    },
+    "position": {
+      "title": "Position",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lat", "lon"],
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "alt_m": { "type": "number" }
+      }
+    },
+    "object_ref": {
+      "title": "ObjectRef",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["entity", "group", "sensor"] },
+        "id": { "$ref": "#/definitions/id" }
+      }
+    },
+    "standard_identity": {
+      "title": "StandardIdentity",
+      "description": "MIL-STD-2525 standard identity.",
+      "type": "string",
+      "enum": ["pending", "unknown", "assumed_friend", "friend", "neutral", "suspect", "hostile"]
+    },
+    "affiliation": {
+      "title": "Affiliation",
+      "description": "Who an object belongs to, as far as anyone has said. basis=default means nobody has, and the identity is always unknown. Videns never assigns one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "basis", "reasons"],
+      "properties": {
+        "identity": { "$ref": "#/definitions/standard_identity" },
+        "basis": { "type": "string", "enum": ["default", "library", "operator"] },
+        "reasons": { "$ref": "#/definitions/reasons" }
+      },
+      "if": { "properties": { "basis": { "const": "default" } } },
+      "then": { "properties": { "identity": { "const": "unknown" } } },
+      "else": { "properties": { "reasons": { "minItems": 1 } } }
+    },
+    "symbol": {
+      "title": "SymbolCode",
+      "description": "MIL-STD-2525C letter symbol code chosen by Vigilans. Its identity character must agree with affiliation.identity.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sidc"],
+      "properties": {
+        "sidc": { "type": "string", "pattern": "^[A-Z][A-Z-][A-Z-][A-Z-][A-Z0-9-]{6}[A-Z0-9*-]{5}$" }
+      }
+    },
+    "covariance_en": {
+      "title": "CovarianceEN",
+      "description": "East/north position covariance, square metres.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ee", "en", "nn"],
+      "properties": {
+        "ee": { "type": "number", "minimum": 0 },
+        "en": { "type": "number" },
+        "nn": { "type": "number", "minimum": 0 }
+      }
+    },
+    "ellipse": {
+      "title": "Ellipse",
+      "description": "Error ellipse. semi-axes in metres, orientation of the major axis in degrees true, and the probability it contains.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semi_major_m", "semi_minor_m", "orientation_deg", "confidence"],
+      "properties": {
+        "semi_major_m": { "type": "number", "minimum": 0 },
+        "semi_minor_m": { "type": "number", "minimum": 0 },
+        "orientation_deg": { "$ref": "#/definitions/angle_deg" },
+        "confidence": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+      }
+    },
+    "position_uncertainty": {
+      "title": "PositionUncertainty",
+      "description": "Exactly one of cov_en_m2 or ellipse, unless the basis is unreported, in which case neither.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {
+        "basis": { "type": "string", "enum": ["measured", "assumed", "mixed", "unreported"] },
+        "cov_en_m2": { "$ref": "#/definitions/covariance_en" },
+        "ellipse": { "$ref": "#/definitions/ellipse" },
+        "assumption": {
+          "title": "Assumption",
+          "description": "Who declared an assumed uncertainty, and what they declared.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["declared_by", "note"],
+          "properties": {
+            "declared_by": { "$ref": "#/definitions/text" },
+            "note": { "$ref": "#/definitions/text" }
+          }
+        },
+        "mixture": {
+          "title": "UncertaintyMixture",
+          "description": "How many contributing observations had each kind of uncertainty.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["measured", "assumed", "unreported"],
+          "properties": {
+            "measured": { "type": "integer", "minimum": 0 },
+            "assumed": { "type": "integer", "minimum": 0 },
+            "unreported": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "basis": { "const": "unreported" } } },
+          "then": { "not": { "anyOf": [{ "required": ["cov_en_m2"] }, { "required": ["ellipse"] }] } },
+          "else": { "oneOf": [{ "required": ["cov_en_m2"] }, { "required": ["ellipse"] }] }
+        },
+        {
+          "if": { "properties": { "basis": { "const": "assumed" } } },
+          "then": { "required": ["assumption"] }
+        },
+        {
+          "if": { "properties": { "basis": { "const": "mixed" } } },
+          "then": { "required": ["mixture"] }
+        }
+      ]
+    },
+    "velocity": {
+      "title": "Velocity",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["east_mps", "north_mps"],
+      "properties": {
+        "east_mps": { "type": "number" },
+        "north_mps": { "type": "number" },
+        "cov_mps2": { "$ref": "#/definitions/covariance_en" }
+      }
+    },
+    "candidate": {
+      "title": "ClassCandidate",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "confidence", "wording", "reasons"],
+      "properties": {
+        "class": { "$ref": "#/definitions/id" },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "wording": { "$ref": "#/definitions/text" },
+        "reasons": { "allOf": [{ "$ref": "#/definitions/reasons" }, { "minItems": 1 }] }
+      }
+    },
+    "classification": {
+      "title": "Classification",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["classified", "unclassified"] },
+        "candidates": { "type": "array", "items": { "$ref": "#/definitions/candidate" }, "maxItems": 20 },
+        "reason": { "$ref": "#/definitions/text" }
+      },
+      "if": { "properties": { "status": { "const": "classified" } } },
+      "then": { "required": ["candidates"], "properties": { "candidates": { "minItems": 1 } } },
+      "else": { "required": ["reason"] }
+    },
+    "library": {
+      "title": "LibraryRef",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "name": { "$ref": "#/definitions/id" },
+        "version": { "$ref": "#/definitions/id" },
+        "private": { "type": "boolean", "description": "Whether private (non-repository) content is enabled." }
+      },
+      "if": { "properties": { "available": { "const": true } } },
+      "then": { "required": ["name", "version"] }
+    },
+    "source_ref": {
+      "title": "SourceRef",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "observations"],
+      "properties": {
+        "source_id": { "$ref": "#/definitions/id" },
+        "observations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bearing_evidence": {
+      "title": "BearingEvidence",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "source_id", "sensor_position", "bearing_deg", "bearing_uncertainty", "t", "weight"],
+      "properties": {
+        "observation_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "sensor_id": { "$ref": "#/definitions/id" },
+        "sensor_position": { "$ref": "#/definitions/position" },
+        "bearing_deg": { "$ref": "#/definitions/angle_deg" },
+        "bearing_uncertainty": {
+          "title": "BearingUncertainty",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["basis"],
+          "properties": {
+            "basis": { "type": "string", "enum": ["measured", "assumed", "unreported"] },
+            "sigma_deg": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "if": { "properties": { "basis": { "const": "unreported" } } },
+          "then": { "not": { "required": ["sigma_deg"] } },
+          "else": { "required": ["sigma_deg"] }
+        },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "weight": { "type": "number", "minimum": 0 }
+      }
+    },
+    "position_evidence": {
+      "title": "PositionEvidence",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "source_id", "position", "uncertainty", "t"],
+      "properties": {
+        "observation_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "position": { "$ref": "#/definitions/position" },
+        "uncertainty": { "$ref": "#/definitions/position_uncertainty" },
+        "t": { "$ref": "#/definitions/utc_time" }
+      }
+    },
+    "trail_point": {
+      "title": "TrailPoint",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "lat", "lon"],
+      "properties": {
+        "t": { "$ref": "#/definitions/utc_time" },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
+    "entity": {
+      "title": "Entity",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entity_id", "state", "affiliation", "symbol", "freq_hz", "bandwidth_hz",
+        "first_seen", "last_seen", "sources", "classification", "library"
+      ],
+      "properties": {
+        "entity_id": { "$ref": "#/definitions/id" },
+        "label": { "type": "string", "maxLength": 32, "description": "Short display label. Defaults to entity_id." },
+        "state": { "type": "string", "enum": ["tentative", "confirmed", "coasting", "retired"] },
+        "affiliation": { "$ref": "#/definitions/affiliation" },
+        "symbol": { "$ref": "#/definitions/symbol" },
+        "position": { "$ref": "#/definitions/position" },
+        "position_uncertainty": { "$ref": "#/definitions/position_uncertainty" },
+        "velocity": { "$ref": "#/definitions/velocity" },
+        "freq_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "bandwidth_hz": { "type": "number", "minimum": 0 },
+        "first_seen": { "$ref": "#/definitions/utc_time" },
+        "last_seen": { "$ref": "#/definitions/utc_time" },
+        "sources": { "type": "array", "items": { "$ref": "#/definitions/source_ref" }, "minItems": 1 },
+        "classification": { "$ref": "#/definitions/classification" },
+        "library": { "$ref": "#/definitions/library" },
+        "reidentification": {
+          "title": "Reidentification",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["consistent_with", "confidence", "reasons"],
+          "properties": {
+            "consistent_with": { "$ref": "#/definitions/id" },
+            "confidence": { "$ref": "#/definitions/confidence" },
+            "reasons": { "allOf": [{ "$ref": "#/definitions/reasons" }, { "minItems": 1 }] }
+          }
+        },
+        "lineage": {
+          "title": "Lineage",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "merged_from": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+            "split_from": { "$ref": "#/definitions/id" },
+            "merge_confidence": { "$ref": "#/definitions/confidence" }
+          }
+        },
+        "fix_evidence": {
+          "title": "FixEvidence",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bearings": { "type": "array", "items": { "$ref": "#/definitions/bearing_evidence" }, "maxItems": 200 },
+            "positions": { "type": "array", "items": { "$ref": "#/definitions/position_evidence" }, "maxItems": 200 }
+          }
+        },
+        "trail": { "type": "array", "items": { "$ref": "#/definitions/trail_point" }, "maxItems": 500 },
+        "meta": { "type": "object", "description": "Free-form. Shown as text, never interpreted." }
+      },
+      "dependencies": {
+        "position": ["position_uncertainty"],
+        "position_uncertainty": ["position"]
+      }
+    },
+    "group": {
+      "title": "Group",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id", "kind", "members", "confidence", "member_identity_bound", "evidence", "state"],
+      "properties": {
+        "group_id": { "$ref": "#/definitions/id" },
+        "kind": { "type": "string", "enum": ["controller/controlled", "superior/subordinate", "peer", "co-sited"] },
+        "members": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "title": "GroupMember",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entity_id"],
+            "properties": {
+              "entity_id": { "$ref": "#/definitions/id" },
+              "role": { "type": "string", "maxLength": 64 }
+            }
+          }
+        },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "member_identity_bound": { "$ref": "#/definitions/confidence" },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "title": "GroupEvidence",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "summary"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["temporal_coupling", "co_location", "motion_coupling", "channel_pairing", "activity_cycle", "lifetime_coincidence"]
+              },
+              "summary": { "$ref": "#/definitions/text" },
+              "value": { "type": "number" }
+            }
+          }
+        },
+        "state": { "type": "string", "enum": ["hypothesis", "published", "decaying", "retired"] },
+        "limitations": { "$ref": "#/definitions/reasons" }
+      }
+    },
+    "sensor": {
+      "title": "Sensor",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sensor_id", "source_id", "health", "affiliation", "symbol"],
+      "properties": {
+        "sensor_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "label": { "type": "string", "maxLength": 32 },
+        "position": { "$ref": "#/definitions/position" },
+        "last_heard": { "$ref": "#/definitions/utc_time" },
+        "health": { "type": "string", "enum": ["reporting", "quiet", "silent", "unknown"] },
+        "affiliation": { "$ref": "#/definitions/affiliation" },
+        "symbol": { "$ref": "#/definitions/symbol" }
+      }
+    },
+    "event": {
+      "title": "LifecycleEvent",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "t", "objects", "reason"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "entity_created", "entity_retired", "affiliation_changed", "merged", "unmerged", "split",
+            "reidentified", "group_formed", "group_published", "group_decaying", "group_retired"
+          ]
+        },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "objects": { "type": "array", "items": { "$ref": "#/definitions/object_ref" }, "minItems": 1 },
+        "from": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+        "into": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+        "reason": { "$ref": "#/definitions/text" }
+      }
+    },
+    "cot_record": {
+      "title": "CotRecord",
+      "description": "The CoT events Vigilans built for one object, verbatim, and what happened to them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object", "built_t", "events", "disposition"],
+      "properties": {
+        "object": { "$ref": "#/definitions/object_ref" },
+        "built_t": { "$ref": "#/definitions/utc_time" },
+        "events": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "title": "CotEvent",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["uid", "type", "xml"],
+            "properties": {
+              "uid": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "type": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "xml": { "type": "string", "minLength": 1, "maxLength": 65536 }
+            }
+          }
+        },
+        "disposition": {
+          "title": "CotDisposition",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {
+            "status": { "type": "string", "enum": ["published", "withheld"] },
+            "destinations": {
+              "type": "array",
+              "items": {
+                "title": "CotDestination",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "outcome"],
+                "properties": {
+                  "name": { "$ref": "#/definitions/id" },
+                  "outcome": { "type": "string", "enum": ["sent", "failed"] },
+                  "reason": { "$ref": "#/definitions/text" }
+                },
+                "if": { "properties": { "outcome": { "const": "failed" } } },
+                "then": { "required": ["reason"] }
+              }
+            },
+            "reason_code": {
+              "type": "string",
+              "enum": ["below_threshold", "publishing_disabled", "no_destination", "no_representation"]
+            },
+            "reason": { "$ref": "#/definitions/text" }
+          },
+          "if": { "properties": { "status": { "const": "published" } } },
+          "then": { "required": ["destinations"], "properties": { "destinations": { "minItems": 1 } } },
+          "else": { "required": ["reason_code", "reason"] }
+        }
+      },
+      "if": {
+        "required": ["disposition"],
+        "properties": {
+          "disposition": {
+            "required": ["reason_code"],
+            "properties": { "reason_code": { "const": "no_representation" } }
+          }
+        }
+      },
+      "then": {},
+      "else": { "properties": { "events": { "minItems": 1 } } }
+    },
+    "hello": {
+      "title": "HelloMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "type", "run_id", "seq", "engine", "contracts", "library", "sources", "clock", "origin", "started_at"],
+      "properties": {
+        "schema": { "const": "picture.v0" },
+        "type": { "const": "hello" },
+        "run_id": { "$ref": "#/definitions/id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "wall_t": { "$ref": "#/definitions/utc_time" },
+        "engine": {
+          "title": "EngineRef",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "$ref": "#/definitions/id" },
+            "version": { "$ref": "#/definitions/id" }
+          }
+        },
+        "contracts": { "type": "array", "items": { "$ref": "#/definitions/id" }, "minItems": 1 },
+        "scenario": { "$ref": "#/definitions/id" },
+        "library": { "$ref": "#/definitions/library" },
+        "sources": {
+          "type": "array",
+          "items": {
+            "title": "SourceInfo",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_id"],
+            "properties": {
+              "source_id": { "$ref": "#/definitions/id" },
+              "label": { "type": "string", "maxLength": 64 }
+            }
+          }
+        },
+        "clock": {
+          "title": "ClockInfo",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "rate"],
+          "properties": {
+            "mode": { "type": "string", "enum": ["sim", "wall"] },
+            "rate": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "if": { "properties": { "mode": { "const": "wall" } } },
+          "then": { "properties": { "rate": { "const": 1 } } }
+        },
+        "origin": { "$ref": "#/definitions/position" },
+        "started_at": { "$ref": "#/definitions/utc_time" },
+        "heartbeat_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 }
+      }
+    },
+    "snapshot": {
+      "title": "SnapshotMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "type", "run_id", "seq", "t", "entities", "groups", "sensors", "cot"],
+      "properties": {
+        "schema": { "const": "picture.v0" },
+        "type": { "const": "snapshot" },
+        "run_id": { "$ref": "#/definitions/id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "wall_t": { "$ref": "#/definitions/utc_time" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "entities": { "type": "array", "items": { "$ref": "#/definitions/entity" } },
+        "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } },
+        "sensors": { "type": "array", "items": { "$ref": "#/definitions/sensor" } },
+        "cot": { "type": "array", "items": { "$ref": "#/definitions/cot_record" } }
+      }
+    },
+    "delta": {
+      "title": "DeltaMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "type", "run_id", "seq", "t"],
+      "properties": {
+        "schema": { "const": "picture.v0" },
+        "type": { "const": "delta" },
+        "run_id": { "$ref": "#/definitions/id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "wall_t": { "$ref": "#/definitions/utc_time" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "upsert": {
+          "title": "Upsert",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "entities": { "type": "array", "items": { "$ref": "#/definitions/entity" } },
+            "groups": { "type": "array", "items": { "$ref": "#/definitions/group" } },
+            "sensors": { "type": "array", "items": { "$ref": "#/definitions/sensor" } }
+          }
+        },
+        "remove": {
+          "type": "array",
+          "items": {
+            "title": "Removal",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "id", "reason"],
+            "properties": {
+              "kind": { "type": "string", "enum": ["entity", "group", "sensor"] },
+              "id": { "$ref": "#/definitions/id" },
+              "reason": { "$ref": "#/definitions/text" }
+            }
+          }
+        },
+        "events": { "type": "array", "items": { "$ref": "#/definitions/event" } }
+      }
+    },
+    "cot": {
+      "title": "CotMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "type", "run_id", "seq", "t", "record"],
+      "properties": {
+        "schema": { "const": "picture.v0" },
+        "type": { "const": "cot" },
+        "run_id": { "$ref": "#/definitions/id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "wall_t": { "$ref": "#/definitions/utc_time" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "record": { "$ref": "#/definitions/cot_record" }
+      }
+    },
+    "heartbeat": {
+      "title": "HeartbeatMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "type", "run_id", "seq", "t", "wall_t"],
+      "properties": {
+        "schema": { "const": "picture.v0" },
+        "type": { "const": "heartbeat" },
+        "run_id": { "$ref": "#/definitions/id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "wall_t": { "$ref": "#/definitions/utc_time" },
+        "t": { "$ref": "#/definitions/utc_time" }
+      }
+    },
+    "notice": {
+      "title": "NoticeMessage",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "type", "run_id", "seq", "t", "severity", "text"],
+      "properties": {
+        "schema": { "const": "picture.v0" },
+        "type": { "const": "notice" },
+        "run_id": { "$ref": "#/definitions/id" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "wall_t": { "$ref": "#/definitions/utc_time" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+        "code": { "$ref": "#/definitions/id" },
+        "text": { "$ref": "#/definitions/text" }
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+# A command post and six units on one net (project owner's example, 2026-09-30).
+#
+# 0-300 s: the CP and six units sit within tens of metres of each other and radio-check on
+# one channel. That is one entity by design: too close to separate, and treating them as one
+# thing is correct. From 300 s the units leave one at a time, 30 s apart, in six directions at
+# 8 m/s. Each departure should become a SPLIT from the entity that stays, and the one that
+# stays -- the CP -- should end up stationary with six departures recorded against it.
+#
+# Controls: CTRL sits at the CP on a DIFFERENT channel and must never be merged with it
+# (co-located is not co-channel). GEO-SYS reads 1.5 kHz high and stamps 0.4 s late; entity
+# resolution has to learn both, and still make one entity per emitter across sources.
+#
+# Synthetic and unclassified (rule 1): invented names, arbitrary frequencies, neutral origin.
+
+name: cp_departure
+description: A CP and six co-located units on one net; the units depart; a co-located control on another channel.
+origin: { lat: 50.0, lon: -105.0 }
+duration_s: 1500
+
+sources:
+  - source_id: DF-NET
+    label: Synthetic DF net
+    kind: bearing
+    affiliation: friend
+    bearing_sigma_deg: 1.5
+    max_range_m: 60000
+    p_detect: 0.95
+    sensors:
+      - { sensor_id: DF-1, east_m: -16000, north_m: -12000, alt_m: 1210 }
+      - { sensor_id: DF-2, east_m: 17000, north_m: -10000, alt_m: 1185 }
+      - { sensor_id: DF-3, east_m: 1000, north_m: 19000, alt_m: 1240 }
+
+  - source_id: GEO-SYS
+    label: Synthetic geolocating system (biased)
+    kind: position
+    position_sigma_m: 150.0
+    p_detect: 0.6
+    freq_bias_hz: 1500
+    clock_offset_s: 0.4
+
+emitters:
+  - { emitter_id: CP, east_m: 2000, north_m: 1000, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 2.0, offset_s: 1 }
+  - { emitter_id: U1, east_m: 2020, north_m: 1010, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 1.5, offset_s: 5,
+      waypoints: [[0, 2020, 1010], [300, 2020, 1010], [1200, 5620, 7245]] }
+  - { emitter_id: U2, east_m: 1985, north_m: 1030, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 1.5, offset_s: 9,
+      waypoints: [[0, 1985, 1030], [330, 1985, 1030], [1230, 9185, 1030]] }
+  - { emitter_id: U3, east_m: 2010, north_m: 975, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 1.5, offset_s: 13,
+      waypoints: [[0, 2010, 975], [360, 2010, 975], [1260, 5610, -5260]] }
+  - { emitter_id: U4, east_m: 1970, north_m: 995, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 1.5, offset_s: 17,
+      waypoints: [[0, 1970, 995], [390, 1970, 995], [1290, -1630, -5240]] }
+  - { emitter_id: U5, east_m: 2030, north_m: 1040, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 1.5, offset_s: 21,
+      waypoints: [[0, 2030, 1040], [420, 2030, 1040], [1320, -5170, 1040]] }
+  - { emitter_id: U6, east_m: 1995, north_m: 960, freq_hz: 404000000, bandwidth_hz: 12500,
+      period_s: 30, duration_s: 1.5, offset_s: 25,
+      waypoints: [[0, 1995, 960], [450, 1995, 960], [1350, -1605, 7195]] }
+  - { emitter_id: CTRL, east_m: 2005, north_m: 1005, freq_hz: 407500000, bandwidth_hz: 25000,
+      period_s: 20, duration_s: 1.0, offset_s: 3 }

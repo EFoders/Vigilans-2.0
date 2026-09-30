@@ -1,0 +1,30 @@
+{
+  "reason": "An altitude carries an uncertainty basis, even if that basis is unreported.",
+  "expect": "alt_uncertainty",
+  "message": {
+    "schema": "observation.v1",
+    "kind": "position",
+    "observation_id": "fx-p-0001",
+    "source_id": "SRC-GEO",
+    "t": "2026-01-01T00:00:12Z",
+    "freq_hz": 403500000,
+    "bandwidth_hz": 25000,
+    "provenance": {
+      "adapter": "fixture-adapter",
+      "adapter_version": "0.0.1",
+      "contract": "observation.v1"
+    },
+    "lat": 50.021,
+    "lon": -104.973,
+    "position_uncertainty": {
+      "basis": "measured",
+      "ellipse": {
+        "semi_major_m": 220.0,
+        "semi_minor_m": 140.0,
+        "orientation_deg": 35.0,
+        "confidence": 0.95
+      }
+    },
+    "alt_m": 300.0
+  }
+}

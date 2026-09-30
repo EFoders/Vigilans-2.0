@@ -1,0 +1,55 @@
+# A vehicle on the synthetic road network, a mover crossing open country, and a fixed station
+# just off a road (scenario.v2). Exercises the map features (ADR-0014) against the invented
+# maps in vigilans/maps/synthetic/: the vehicle's waypoints are vertices of Roads D, B and A;
+# the cross-country mover crosses Road B once, near the end; the fixed station stands ~200 m
+# north of Road A.
+#
+# Five DF sensors within ~10 km, 1 degree bearing sigma, reports every 5 s: fixes of tens of
+# metres, so road following can be judged. Emitter heights are not modelled (no sensor
+# measures elevation here).
+#
+# Synthetic and unclassified (rule 1): invented roads, names and frequencies, neutral origin.
+
+schema: scenario.v2
+name: road_convoy
+description: A vehicle following synthetic roads, a cross-country mover, and a fixed station near a road.
+seed: 7
+duration_s: 900
+tick_s: 1
+origin: { lat: 50.0, lon: -105.0 }
+propagation: { model: log_distance, exponent: 2.5, shadowing_sigma_db: 3 }
+
+sources:
+  - { id: DF-NET, label: Synthetic DF net, kind: bearing }
+
+sensors:
+  - { id: DF-1, source_id: DF-NET, pos_m: [-4000, 4000], alt_m: 1270, bearing_sigma_deg: 1,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: DF-2, source_id: DF-NET, pos_m: [7000, 3000], alt_m: 1300, bearing_sigma_deg: 1,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: DF-3, source_id: DF-NET, pos_m: [9000, -8000], alt_m: 1290, bearing_sigma_deg: 1,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: DF-4, source_id: DF-NET, pos_m: [-7000, -9500], alt_m: 1230, bearing_sigma_deg: 1,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: DF-5, source_id: DF-NET, pos_m: [-500, -5000], alt_m: 1210, bearing_sigma_deg: 1,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+
+emitters:
+  - { id: VEH, label: Vehicle on the roads, speed_mps: 15,
+      path_m: [[8000, -7000], [6000, -4000], [1500, -3000], [2000, 800], [6000, -500], [10000, -1000]],
+      freq_hz: 406250000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 5, on_s: 2 },
+      truth: { class_id: syn.mobile_net, side: unknown } }
+  - { id: XC, label: Cross-country mover, speed_mps: 12,
+      path_m: [[-8000, -8000], [-2000, -6800], [3500, -7600]],
+      freq_hz: 407000000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 5, on_s: 2, offset_s: 1 },
+      truth: { class_id: syn.mobile_net, side: unknown } }
+  - { id: FIX, label: Fixed station near Road A, path_m: [[-1000, 1420]],
+      freq_hz: 402000000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 20, on_s: 2, offset_s: 3 },
+      truth: { class_id: syn.narrowband_net, side: unknown } }
+
+operator:
+  declarations:
+    - { source_id: DF-NET, affiliation: friend }

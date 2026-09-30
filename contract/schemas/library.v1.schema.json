@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:vigilans:contract:library.v1",
+  "title": "Library",
+  "description": "library.v1: a classification library (VIGILANS_SPEC.md section 9; docs/classifier-design.md). The repository ships a synthetic one; a private one in the same format is loaded from outside the tree and never committed. Data only: nothing here is evaluated. Each class states, per feature, the range it expects; the engine turns ranges into soft likelihoods (soft edges, widened by each measurement's own uncertainty) and weighs them against the library's background -- 'none of the above' -- so unclassified is a real answer. Scale features (frequencies, bandwidths, durations, periods) are compared on a log scale. Supersedes library.v0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "version", "background", "classes"],
+  "properties": {
+    "schema": { "const": "library.v1" },
+    "name": { "$ref": "#/definitions/id" },
+    "version": { "$ref": "#/definitions/id" },
+    "description": { "$ref": "#/definitions/text" },
+    "background": {
+      "title": "Background",
+      "description": "The span each feature can plausibly take for anything at all. A class's range is evidence only to the extent it is narrower than this.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freq_hz", "bandwidth_hz"],
+      "properties": {
+        "freq_hz": { "$ref": "#/definitions/range" },
+        "bandwidth_hz": { "$ref": "#/definitions/range" },
+        "duration_s": { "$ref": "#/definitions/range" },
+        "period_s": { "$ref": "#/definitions/range" },
+        "regularity_cv": { "$ref": "#/definitions/range" },
+        "duty_cycle": { "$ref": "#/definitions/range" },
+        "speed_mps": { "$ref": "#/definitions/range" },
+        "height_m": { "$ref": "#/definitions/range" },
+        "height_agl_m": { "$ref": "#/definitions/range" }
+      }
+    },
+    "classes": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/definitions/class" } }
+  },
+  "definitions": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" },
+    "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "range": {
+      "title": "Range",
+      "description": "Inclusive, both ends given. `soft`: width of the soft edge, in the feature's unit (on a log scale for scale features, as a fraction: 0.05 is 5 %). `weight`: how much the feature counts within its class, default 1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "soft": { "type": "number", "exclusiveMinimum": 0 },
+        "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "class": {
+      "title": "LibraryClass",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class_id", "label"],
+      "properties": {
+        "class_id": { "$ref": "#/definitions/id" },
+        "parent": { "description": "A broader class this one refines: answers are given at the deepest level the evidence supports.", "$ref": "#/definitions/id" },
+        "label": {
+          "description": "A plain noun phrase. The engine adds the hedge ('likely', 'possible'); a label must not carry one of its own.",
+          "type": "string", "minLength": 1, "maxLength": 128
+        },
+        "description": { "$ref": "#/definitions/text" },
+        "features": {
+          "title": "Features",
+          "description": "Externals only (rule 2). A class without features is a category: its probability is the sum of its descendants'.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "freq_hz": { "$ref": "#/definitions/range" },
+            "bandwidth_hz": { "$ref": "#/definitions/range" },
+            "duration_s": { "$ref": "#/definitions/range" },
+            "period_s": { "$ref": "#/definitions/range" },
+            "regularity_cv": { "$ref": "#/definitions/range" },
+            "duty_cycle": { "$ref": "#/definitions/range" },
+            "speed_mps": { "$ref": "#/definitions/range" },
+            "height_m": { "$ref": "#/definitions/range" },
+            "stationary": {
+              "description": "How likely this class is to be staying put, 0..1. Compared with the tracker's stationary-model probability.",
+              "type": "number", "minimum": 0, "maximum": 1
+            },
+            "on_road": {
+              "description": "How likely this class is to follow roads, 0..1. Compared with the chance-corrected on_road feature from an offline road map (ADR-0014).",
+              "type": "number", "minimum": 0, "maximum": 1
+            },
+            "on_water": {
+              "description": "How likely this class is to be on water, 0..1. Compared with the on_water feature from an offline water map (ADR-0014).",
+              "type": "number", "minimum": 0, "maximum": 1
+            },
+            "height_agl_m": {
+              "description": "Height above ground, from the entity's height and an offline terrain grid (ADR-0014). Never used for radio horizon.",
+              "$ref": "#/definitions/range"
+            },
+            "modulation_hints": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["any_of"],
+              "properties": {
+                "any_of": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+                "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+              }
+            },
+            "source_claims": {
+              "description": "Self-identification categories this class is consistent with (ADR-0006). A claim is weighed, never trusted.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["any_of"],
+              "properties": {
+                "any_of": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+                "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
+        "affiliation": {
+          "title": "DeclaredAffiliation",
+          "description": "An affiliation this library declares for the class, with its reasons. Applied only when the class is 'likely'. Absent: the entity stays unknown.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["identity", "reasons"],
+          "properties": {
+            "identity": { "type": "string", "enum": ["pending", "unknown", "assumed_friend", "friend", "neutral", "suspect", "hostile"] },
+            "reasons": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/text" } }
+          }
+        },
+        "symbol": {
+          "title": "SymbolTemplate",
+          "description": "A MIL-STD-2525C letter code with '*' in the identity position; the engine fills in the identity it assessed.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sidc_template"],
+          "properties": {
+            "sidc_template": { "type": "string", "pattern": "^[A-Z]\\*[A-Z-][A-Z-][A-Z0-9-]{6}[A-Z0-9*-]{5}$" }
+          }
+        }
+      }
+    }
+  }
+}

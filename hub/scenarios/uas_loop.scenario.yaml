@@ -1,0 +1,66 @@
+# A small uncrewed aircraft flying tight figure-eights near its static controller (scenario.v2).
+#
+#   DF-NET   four bearing sensors a few km around, 2 degree bearings every second.
+#   CTRL     the controller on the ground, static, transmitting continuously.
+#   UAS      the aircraft at 120 m, 25 m/s, looping a figure-eight of two 150 m-radius turns
+#            (about 0.17 rad/s, 220 degrees each, one left and one right) joined by straight
+#            legs. Same channel as CTRL, also continuous: the two are co-channel and on together.
+#
+# The point: fast turning motion must keep one identity (coordinated-turn motion models,
+# Phase 3b). Synthetic and unclassified (rule 1): invented names, arbitrary frequencies,
+# neutral origin. The turns are waypoints every ~10 degrees along each arc.
+
+schema: scenario.v2
+name: uas_loop
+description: A small UAS looping tight figure-eights at 25 m/s beside its static, co-channel controller.
+seed: 7
+duration_s: 600
+tick_s: 1
+origin: { lat: 50.0, lon: -105.0 }
+propagation: { model: log_distance, exponent: 2.3, shadowing_sigma_db: 3 }
+
+sources:
+  - { id: DF-NET, label: Synthetic DF net, kind: bearing }
+
+sensors:
+  - { id: DF-A, source_id: DF-NET, pos_m: [-3500, -2500], alt_m: 5, bearing_sigma_deg: 2,
+      freq_range_hz: [2000000000, 3000000000], report_interval_s: 1 }
+  - { id: DF-B, source_id: DF-NET, pos_m: [3200, -3000], alt_m: 5, bearing_sigma_deg: 2,
+      freq_range_hz: [2000000000, 3000000000], report_interval_s: 1 }
+  - { id: DF-C, source_id: DF-NET, pos_m: [3800, 3200], alt_m: 5, bearing_sigma_deg: 2,
+      freq_range_hz: [2000000000, 3000000000], report_interval_s: 1 }
+  - { id: DF-D, source_id: DF-NET, pos_m: [-3000, 3800], alt_m: 5, bearing_sigma_deg: 2,
+      freq_range_hz: [2000000000, 3000000000], report_interval_s: 1 }
+
+emitters:
+  - { id: CTRL, label: Ground controller, path_m: [[1500, -1500]], alt_m: 2, freq_hz: 2441750000,
+      bandwidth_hz: 10500000, eirp_dbm: 27, activity: { type: continuous },
+      truth: { class_id: syn.uas_control, side: unknown } }
+  - id: UAS
+    label: Small aircraft on figure-eights
+    alt_m: 120
+    speed_mps: 25
+    loop: true
+    freq_hz: 2441750000
+    bandwidth_hz: 10500000
+    eirp_dbm: 27
+    activity: { type: continuous }
+    truth: { class_id: syn.uas_control, side: unknown }
+    path_m: [[400, 1341], [426, 1348], [454, 1350], [481, 1347], [507, 1339], [531, 1326], [552, 1310],
+             [571, 1289], [585, 1266], [594, 1240], [599, 1214], [599, 1186], [594, 1160], [585, 1134],
+             [571, 1111], [552, 1090], [531, 1074], [507, 1061], [481, 1053], [454, 1050], [426, 1052],
+             [400, 1059], [-400, 1341], [-426, 1348], [-454, 1350], [-481, 1347], [-507, 1339],
+             [-531, 1326], [-552, 1310], [-571, 1289], [-585, 1266], [-594, 1240], [-599, 1214],
+             [-599, 1186], [-594, 1160], [-585, 1134], [-571, 1111], [-552, 1090], [-531, 1074],
+             [-507, 1061], [-481, 1053], [-454, 1050], [-426, 1052], [-400, 1059]]
+
+operator:
+  declarations:
+    - { source_id: DF-NET, affiliation: friend }
+
+truth_relations:
+  - kind: controller/controlled
+    members:
+      - { emitter_id: CTRL, role: controller }
+      - { emitter_id: UAS, role: controlled }
+    note: The controller flies the aircraft; both use one channel.

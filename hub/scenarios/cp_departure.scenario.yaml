@@ -1,0 +1,66 @@
+# A command post and six units on one net (the owner's example, ADR-0009), as scenario.v2.
+#
+# 0-300 s the CP and six units sit within tens of metres and radio-check on one channel: one
+# entity by design. From 300 s the units leave one at a time, 30 s apart, in six directions at
+# 8 m/s (a 300 s hold at the first waypoint, then the leg). CTRL sits at the CP on another
+# channel and must never be merged with it. GEO-SYS reads 1.5 kHz high and stamps 0.4 s late.
+#
+# Synthetic and unclassified (rule 1): invented names, arbitrary frequencies, neutral origin.
+
+schema: scenario.v2
+name: cp_departure
+description: A CP and six co-located units on one net; the units depart; a co-located control on another channel.
+seed: 1
+duration_s: 1500
+tick_s: 1
+origin: { lat: 50.0, lon: -105.0 }
+propagation: { model: log_distance, exponent: 2.5, shadowing_sigma_db: 3 }
+
+sources:
+  - { id: DF-NET, label: Synthetic DF net, kind: bearing }
+  - { id: GEO-SYS, label: Synthetic geolocating system (biased), kind: position,
+      position_sigma_m: 150, freq_bias_hz: 1500, clock_offset_s: 0.4 }
+
+sensors:
+  - { id: DF-1, source_id: DF-NET, pos_m: [-16000, -12000], alt_m: 1210, bearing_sigma_deg: 1.5,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 10, p_miss: 0.05 }
+  - { id: DF-2, source_id: DF-NET, pos_m: [17000, -10000], alt_m: 1185, bearing_sigma_deg: 1.5,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 10, p_miss: 0.05 }
+  - { id: DF-3, source_id: DF-NET, pos_m: [1000, 19000], alt_m: 1240, bearing_sigma_deg: 1.5,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 10, p_miss: 0.05 }
+  - { id: GEO-RX, source_id: GEO-SYS, pos_m: [0, 0], freq_range_hz: [300000000, 3000000000],
+      report_interval_s: 10, p_miss: 0.4 }
+
+emitters:
+  - { id: CP, label: Command post, path_m: [[2000, 1000]], freq_hz: 404000000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 30, on_s: 2, offset_s: 1 }, truth: { side: unknown } }
+  - { id: U1, label: Unit 1, path_m: [[2020, 1010, 300], [5620, 7245]], speed_mps: 8,
+      freq_hz: 404000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 1.5, offset_s: 5 } }
+  - { id: U2, label: Unit 2, path_m: [[1985, 1030, 330], [9185, 1030]], speed_mps: 8,
+      freq_hz: 404000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 1.5, offset_s: 9 } }
+  - { id: U3, label: Unit 3, path_m: [[2010, 975, 360], [5610, -5260]], speed_mps: 8,
+      freq_hz: 404000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 1.5, offset_s: 13 } }
+  - { id: U4, label: Unit 4, path_m: [[1970, 995, 390], [-1630, -5240]], speed_mps: 8,
+      freq_hz: 404000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 1.5, offset_s: 17 } }
+  - { id: U5, label: Unit 5, path_m: [[2030, 1040, 420], [-5170, 1040]], speed_mps: 8,
+      freq_hz: 404000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 1.5, offset_s: 21 } }
+  - { id: U6, label: Unit 6, path_m: [[1995, 960, 450], [-1605, 7195]], speed_mps: 8,
+      freq_hz: 404000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 1.5, offset_s: 25 } }
+  - { id: CTRL, label: Control (other channel), path_m: [[2005, 1005]], freq_hz: 407500000, bandwidth_hz: 25000,
+      activity: { type: periodic, period_s: 20, on_s: 1, offset_s: 3 } }
+
+operator:
+  declarations:
+    - { source_id: DF-NET, affiliation: friend }
+
+truth_relations:
+  - kind: superior/subordinate
+    members:
+      - { emitter_id: CP, role: superior }
+      - { emitter_id: U1, role: subordinate }
+      - { emitter_id: U2, role: subordinate }
+      - { emitter_id: U3, role: subordinate }
+      - { emitter_id: U4, role: subordinate }
+      - { emitter_id: U5, role: subordinate }
+      - { emitter_id: U6, role: subordinate }
+    note: The units report to the CP; grouping (Phase 7) should find this from the departures.

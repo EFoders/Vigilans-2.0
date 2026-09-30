@@ -1,0 +1,110 @@
+# The synthetic classification library shipped with the repository (spec §9.1).
+#
+# Every class, range and declaration here is INVENTED, over broad, publicly documented band
+# ranges. Nothing corresponds to any real equipment, frequency assignment or parameter, and
+# nothing may be added that does (rule 6). It exists to exercise every code path; real value
+# needs a private library in the same format, loaded from outside the tree:
+#
+#   [library]
+#   path = "/secure/libraries/site.yaml"
+#   private = true
+#
+# Format: contract/schemas/library.v1.schema.json; how it is used: docs/classifier-design.md.
+# Data only; nothing here is evaluated.
+
+schema: library.v1
+name: synthetic
+version: 0.3.0
+description: Invented classes over broad public bands, for demonstration and tests.
+
+# What anything at all might look like: a class range is evidence only where it is narrower.
+background:
+  freq_hz: { min: 20000000, max: 6000000000 }
+  bandwidth_hz: { min: 1000, max: 40000000 }
+  duration_s: { min: 0.05, max: 3600 }
+  period_s: { min: 1, max: 3600 }
+  regularity_cv: { min: 0, max: 3 }
+  duty_cycle: { min: 0, max: 1 }
+  speed_mps: { min: 0, max: 100 }
+  height_m: { min: -500, max: 5000 }
+  height_agl_m: { min: -200, max: 5000 }
+
+classes:
+  # --- categories: no features of their own; they sum their descendants -----------------
+  - { class_id: syn.net_radio, label: net radio }
+  - { class_id: syn.data_link, label: data link }
+  - { class_id: syn.broadcast, label: broadcast transmitter }
+
+  # --- net radios -------------------------------------------------------------------------
+  - class_id: syn.narrowband_net
+    parent: syn.net_radio
+    label: synthetic narrowband net radio
+    description: Short, periodic narrowband transmissions from a fixed position.
+    features:
+      freq_hz: { min: 400000000, max: 405000000, soft: 0.002 }
+      bandwidth_hz: { min: 6250, max: 25000 }
+      duration_s: { min: 0.5, max: 6, weight: 0.5 }
+      period_s: { min: 10, max: 60, weight: 0.5 }
+      stationary: 0.85
+    symbol: { sidc_template: "S*GPEUR--------" }
+
+  - class_id: syn.mobile_net
+    parent: syn.net_radio
+    label: synthetic vehicle-borne net radio
+    description: The narrowband net, but moving.
+    features:
+      freq_hz: { min: 405000000, max: 408000000, soft: 0.002 }
+      bandwidth_hz: { min: 6250, max: 25000 }
+      speed_mps: { min: 2, max: 40 }
+      stationary: 0.1
+      on_road: 0.8
+    symbol: { sidc_template: "S*GPEV---------" }
+
+  - class_id: syn.vhf_net
+    parent: syn.net_radio
+    label: synthetic VHF net radio
+    description: Call-and-reply voice-bandwidth traffic in the broad low-VHF band.
+    features:
+      freq_hz: { min: 30000000, max: 88000000 }
+      bandwidth_hz: { min: 5000, max: 30000 }
+      duty_cycle: { min: 0, max: 0.6, weight: 0.5 }
+    symbol: { sidc_template: "S*GPEUR--------" }
+
+  # --- data links ---------------------------------------------------------------------------
+  - class_id: syn.wideband_link
+    parent: syn.data_link
+    label: synthetic wideband data link
+    description: Frequent short bursts over a wide channel.
+    features:
+      freq_hz: { min: 408000000, max: 412000000, soft: 0.002 }
+      bandwidth_hz: { min: 100000, max: 500000 }
+      period_s: { min: 2, max: 20, weight: 0.5 }
+    affiliation:
+      identity: suspect
+      reasons:
+        - The synthetic library declares syn.wideband_link suspect, to demonstrate a library-based affiliation. It is invented.
+    symbol: { sidc_template: "S*GPE----------" }
+
+  - class_id: syn.uas_control
+    parent: syn.data_link
+    label: synthetic small-UAS control link
+    description: Continuous wideband link in the broad 2.4 GHz licence-exempt band.
+    features:
+      freq_hz: { min: 2400000000, max: 2483500000, soft: 0.002 }
+      bandwidth_hz: { min: 1000000, max: 20000000 }
+      duty_cycle: { min: 0.7, max: 1 }
+      height_agl_m: { min: 10, max: 500, weight: 0.5 }
+      source_claims: { any_of: [UAS] }
+    symbol: { sidc_template: "S*GPE----------" }
+
+  # --- broadcast ------------------------------------------------------------------------------
+  - class_id: syn.fm_broadcast
+    parent: syn.broadcast
+    label: synthetic FM broadcast transmitter
+    description: Continuous, wide, fixed, in the broad FM broadcast band.
+    features:
+      freq_hz: { min: 88000000, max: 108000000 }
+      bandwidth_hz: { min: 150000, max: 300000 }
+      duty_cycle: { min: 0.9, max: 1 }
+      stationary: 0.95
+    symbol: { sidc_template: "S*GPE----------" }

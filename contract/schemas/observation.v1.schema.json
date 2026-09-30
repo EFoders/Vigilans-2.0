@@ -1,0 +1,366 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:vigilans:contract:observation.v1",
+  "title": "Observation",
+  "description": "observation.v1: one source's report of one signal at one moment (VIGILANS_SPEC.md section 5). Two signal flavours share one envelope: a bearing (a line with no range, what a DF sensor produces) and a position (an emitter location the source already computed). Two further kinds describe the sensor rather than a signal: coverage (what it was listening to, and when -- the denominator for every timing feature) and occupancy (the noise floor it saw in a band). Conventions (section 5.4): WGS84 geodetic positions; bearings and orientations in degrees true, clockwise from north, [0, 360); elevation positive above the horizon; units in field names; timezone-aware UTC times ending in Z; uncertainties 1-sigma unless the field name says otherwise. Every uncertainty carries a basis, and an unreported uncertainty carries no number (section 5.5).",
+  "oneOf": [
+    { "$ref": "#/definitions/bearing_observation" },
+    { "$ref": "#/definitions/position_observation" },
+    { "$ref": "#/definitions/coverage_record" },
+    { "$ref": "#/definitions/occupancy_record" }
+  ],
+  "definitions": {
+    "utc_time": {
+      "title": "UtcTime",
+      "description": "ISO 8601, timezone-aware, UTC, with a literal Z.",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "text": {
+      "title": "Text",
+      "description": "Human-readable text. Never interpreted by the engine, never rendered as markup.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "angle_deg": {
+      "title": "AngleDeg",
+      "description": "Degrees true, clockwise from north. 360 is not an angle; it is 0.",
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 360
+    },
+    "elevation_deg": {
+      "title": "ElevationDeg",
+      "description": "Degrees above the horizon; negative is below.",
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "latitude": { "title": "Latitude", "type": "number", "minimum": -90, "maximum": 90 },
+    "longitude": { "title": "Longitude", "type": "number", "minimum": -180, "maximum": 180 },
+    "basis": {
+      "title": "UncertaintyBasis",
+      "description": "measured: the source reported it, or it was characterised against known emitters. assumed: a human declared it, and says so in `assumption`. unreported: nobody knows, and no number is given.",
+      "type": "string",
+      "enum": ["measured", "assumed", "unreported"]
+    },
+    "assumption": {
+      "title": "Assumption",
+      "description": "Who declared an assumed uncertainty, and why. A human taking responsibility for a number, visibly.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["declared_by", "note"],
+      "properties": {
+        "declared_by": { "$ref": "#/definitions/text" },
+        "note": { "$ref": "#/definitions/text" }
+      }
+    },
+    "angle_uncertainty": {
+      "title": "AngleUncertainty",
+      "description": "1-sigma uncertainty of an angle, in degrees. sigma_deg is present exactly when the basis is not unreported.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {
+        "basis": { "$ref": "#/definitions/basis" },
+        "sigma_deg": { "type": "number", "exclusiveMinimum": 0, "maximum": 180 },
+        "assumption": { "$ref": "#/definitions/assumption" },
+        "method": { "$ref": "#/definitions/text" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "basis": { "const": "unreported" } } },
+          "then": { "not": { "anyOf": [{ "required": ["sigma_deg"] }, { "required": ["assumption"] }] } },
+          "else": { "required": ["sigma_deg"] }
+        },
+        {
+          "if": { "properties": { "basis": { "const": "assumed" } } },
+          "then": { "required": ["assumption"] }
+        }
+      ]
+    },
+    "length_uncertainty": {
+      "title": "LengthUncertainty",
+      "description": "1-sigma uncertainty of a length, in metres. sigma_m is present exactly when the basis is not unreported.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {
+        "basis": { "$ref": "#/definitions/basis" },
+        "sigma_m": { "type": "number", "exclusiveMinimum": 0 },
+        "assumption": { "$ref": "#/definitions/assumption" },
+        "method": { "$ref": "#/definitions/text" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "basis": { "const": "unreported" } } },
+          "then": { "not": { "anyOf": [{ "required": ["sigma_m"] }, { "required": ["assumption"] }] } },
+          "else": { "required": ["sigma_m"] }
+        },
+        {
+          "if": { "properties": { "basis": { "const": "assumed" } } },
+          "then": { "required": ["assumption"] }
+        }
+      ]
+    },
+    "covariance_en": {
+      "title": "CovarianceEN",
+      "description": "East/north position covariance, square metres, 1-sigma.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ee", "en", "nn"],
+      "properties": {
+        "ee": { "type": "number", "minimum": 0 },
+        "en": { "type": "number" },
+        "nn": { "type": "number", "minimum": 0 }
+      }
+    },
+    "ellipse": {
+      "title": "Ellipse",
+      "description": "Error ellipse: semi-axes in metres, major-axis orientation in degrees true, and the probability it contains. A CEP50 radius r is an ellipse with both semi-axes r, orientation 0 and confidence 0.5 -- relabelled, never passed off as a sigma.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semi_major_m", "semi_minor_m", "orientation_deg", "confidence"],
+      "properties": {
+        "semi_major_m": { "type": "number", "minimum": 0 },
+        "semi_minor_m": { "type": "number", "minimum": 0 },
+        "orientation_deg": { "$ref": "#/definitions/angle_deg" },
+        "confidence": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+      }
+    },
+    "position_uncertainty": {
+      "title": "PositionUncertainty",
+      "description": "Horizontal position uncertainty. Exactly one of cov_en_m2 or ellipse, unless the basis is unreported, in which case neither.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis"],
+      "properties": {
+        "basis": { "$ref": "#/definitions/basis" },
+        "cov_en_m2": { "$ref": "#/definitions/covariance_en" },
+        "ellipse": { "$ref": "#/definitions/ellipse" },
+        "assumption": { "$ref": "#/definitions/assumption" },
+        "method": { "$ref": "#/definitions/text" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "basis": { "const": "unreported" } } },
+          "then": {
+            "not": { "anyOf": [{ "required": ["cov_en_m2"] }, { "required": ["ellipse"] }, { "required": ["assumption"] }] }
+          },
+          "else": { "oneOf": [{ "required": ["cov_en_m2"] }, { "required": ["ellipse"] }] }
+        },
+        {
+          "if": { "properties": { "basis": { "const": "assumed" } } },
+          "then": { "required": ["assumption"] }
+        }
+      ]
+    },
+    "conversion": {
+      "title": "Conversion",
+      "description": "Something the adapter did to the source's numbers to meet this contract's conventions, recorded so it can be checked.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "detail"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["magnetic_to_true", "platform_relative_to_true", "datum", "clock_offset", "unit", "uncertainty_relabel", "other"]
+        },
+        "detail": { "$ref": "#/definitions/text" }
+      }
+    },
+    "transmission_state": {
+      "title": "TransmissionState",
+      "description": "complete: duration_s is the whole transmission. ongoing: it had not ended when reported, and duration_s is the time on air so far; later records with the same transmission_id update it.",
+      "type": "string",
+      "enum": ["complete", "ongoing"]
+    },
+    "hop": {
+      "title": "HopHint",
+      "description": "For a source that already groups frequency hops itself: which hop group this transmission belongs to, and the dwell it measured. Absent means the source says nothing, not that it is not hopping.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_id"],
+      "properties": {
+        "group_id": { "$ref": "#/definitions/id" },
+        "dwell_s": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "source_claim": {
+      "title": "SourceClaim",
+      "description": "A self-identification broadcast that the adapter decoded (ADR-0006). The engine decodes nothing; this is the source's claim, weighed as evidence and worded as a claim, never trusted outright.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "category"],
+      "properties": {
+        "scheme": { "type": "string", "enum": ["remote_id", "ads_b", "ais", "other"] },
+        "category": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "claimed_id": { "$ref": "#/definitions/id" }
+      }
+    },
+    "frequency_range": {
+      "title": "FrequencyRange",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_hz", "max_hz"],
+      "properties": {
+        "min_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "max_hz": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "provenance": {
+      "title": "Provenance",
+      "description": "Which adapter produced this record, which version of it, and against which contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "adapter_version", "contract"],
+      "properties": {
+        "adapter": { "$ref": "#/definitions/id" },
+        "adapter_version": { "$ref": "#/definitions/id" },
+        "contract": { "const": "observation.v1" },
+        "conversions": { "type": "array", "items": { "$ref": "#/definitions/conversion" }, "maxItems": 20 }
+      }
+    },
+    "bearing_observation": {
+      "title": "BearingObservation",
+      "description": "A line of bearing from a sensor, with no range.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "kind", "observation_id", "source_id", "t", "freq_hz", "bandwidth_hz", "provenance",
+        "sensor_lat", "sensor_lon", "bearing_deg", "bearing_uncertainty"
+      ],
+      "properties": {
+        "schema": { "const": "observation.v1" },
+        "kind": { "const": "bearing" },
+        "observation_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "sensor_id": { "$ref": "#/definitions/id" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "t_uncertainty_s": { "type": "number", "exclusiveMinimum": 0 },
+        "freq_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "freq_sigma_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "bandwidth_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "power_dbm": { "type": "number" },
+        "snr_db": { "type": "number" },
+        "duration_s": { "type": "number", "minimum": 0 },
+        "modulation_hint": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "provenance": { "$ref": "#/definitions/provenance" },
+        "meta": { "type": "object", "description": "Free-form. Never interpreted by the engine." },
+        "transmission_id": { "$ref": "#/definitions/id" },
+        "transmission_state": { "$ref": "#/definitions/transmission_state" },
+        "power_saturated": { "type": "boolean", "description": "The source says the received power was at its ceiling, so power_dbm is a lower bound." },
+        "hop": { "$ref": "#/definitions/hop" },
+        "source_claim": { "$ref": "#/definitions/source_claim" },
+
+        "sensor_lat": { "$ref": "#/definitions/latitude" },
+        "sensor_lon": { "$ref": "#/definitions/longitude" },
+        "sensor_alt_m": { "type": "number" },
+        "bearing_deg": { "$ref": "#/definitions/angle_deg" },
+        "bearing_uncertainty": { "$ref": "#/definitions/angle_uncertainty" },
+        "elevation_deg": { "$ref": "#/definitions/elevation_deg" },
+        "elevation_uncertainty": { "$ref": "#/definitions/angle_uncertainty" }
+      },
+      "dependencies": {
+        "elevation_deg": ["elevation_uncertainty"],
+        "elevation_uncertainty": ["elevation_deg"]
+      }
+    },
+    "position_observation": {
+      "title": "PositionObservation",
+      "description": "An emitter location the source has already computed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema", "kind", "observation_id", "source_id", "t", "freq_hz", "bandwidth_hz", "provenance",
+        "lat", "lon", "position_uncertainty"
+      ],
+      "properties": {
+        "schema": { "const": "observation.v1" },
+        "kind": { "const": "position" },
+        "observation_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "sensor_id": { "$ref": "#/definitions/id" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "t_uncertainty_s": { "type": "number", "exclusiveMinimum": 0 },
+        "freq_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "freq_sigma_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "bandwidth_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "power_dbm": { "type": "number" },
+        "snr_db": { "type": "number" },
+        "duration_s": { "type": "number", "minimum": 0 },
+        "modulation_hint": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "provenance": { "$ref": "#/definitions/provenance" },
+        "meta": { "type": "object", "description": "Free-form. Never interpreted by the engine." },
+        "transmission_id": { "$ref": "#/definitions/id" },
+        "transmission_state": { "$ref": "#/definitions/transmission_state" },
+        "power_saturated": { "type": "boolean", "description": "The source says the received power was at its ceiling, so power_dbm is a lower bound." },
+        "hop": { "$ref": "#/definitions/hop" },
+        "source_claim": { "$ref": "#/definitions/source_claim" },
+
+        "lat": { "$ref": "#/definitions/latitude" },
+        "lon": { "$ref": "#/definitions/longitude" },
+        "alt_m": { "type": "number" },
+        "position_uncertainty": { "$ref": "#/definitions/position_uncertainty" },
+        "alt_uncertainty": { "$ref": "#/definitions/length_uncertainty" }
+      },
+      "dependencies": {
+        "alt_m": ["alt_uncertainty"],
+        "alt_uncertainty": ["alt_m"]
+      }
+    },
+    "coverage_record": {
+      "title": "CoverageRecord",
+      "description": "What a sensor was listening to, and when. Timing features (period, duty cycle, persistence) are computed over covered time only; a source that sends no coverage has its timing features marked unreported, never assumed to have listened continuously.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "kind", "observation_id", "source_id", "t_start", "t_end", "band", "provenance"],
+      "properties": {
+        "schema": { "const": "observation.v1" },
+        "kind": { "const": "coverage" },
+        "observation_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "sensor_id": { "$ref": "#/definitions/id" },
+        "t_start": { "$ref": "#/definitions/utc_time" },
+        "t_end": { "$ref": "#/definitions/utc_time" },
+        "band": { "$ref": "#/definitions/frequency_range" },
+        "dwell_s": { "type": "number", "exclusiveMinimum": 0, "description": "For a scanning sensor: how long it stays on each step of the band." },
+        "revisit_s": { "type": "number", "exclusiveMinimum": 0, "description": "For a scanning sensor: how long between visits to the same step." },
+        "provenance": { "$ref": "#/definitions/provenance" },
+        "meta": { "type": "object", "description": "Free-form. Never interpreted by the engine." }
+      },
+      "dependencies": {
+        "dwell_s": ["revisit_s"],
+        "revisit_s": ["dwell_s"]
+      }
+    },
+    "occupancy_record": {
+      "title": "OccupancyRecord",
+      "description": "The noise floor a sensor measured across a band at a moment. A rise seen by several sensors at once is interference evidence that needs no propagation model (ADR-0005).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "kind", "observation_id", "source_id", "t", "band", "noise_floor_dbm", "provenance"],
+      "properties": {
+        "schema": { "const": "observation.v1" },
+        "kind": { "const": "occupancy" },
+        "observation_id": { "$ref": "#/definitions/id" },
+        "source_id": { "$ref": "#/definitions/id" },
+        "sensor_id": { "$ref": "#/definitions/id" },
+        "t": { "$ref": "#/definitions/utc_time" },
+        "band": { "$ref": "#/definitions/frequency_range" },
+        "noise_floor_dbm": { "type": "number" },
+        "occupied_fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "provenance": { "$ref": "#/definitions/provenance" },
+        "meta": { "type": "object", "description": "Free-form. Never interpreted by the engine." }
+      }
+    }
+  }
+}

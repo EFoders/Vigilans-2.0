@@ -1,0 +1,56 @@
+# Re-identification across silences (Phase 6, ADR-0016), as scenario.v2.
+#
+# Every silence here is longer than the tracker's retire_after_s (600 s), so the entity is
+# retired and whatever reappears is a new entity. Re-identification must say whether the new
+# one is consistent with the old -- or decline to.
+#
+#   STAY           static, periodic; silent 900-1800 s; reappears at the same spot.
+#   MOVER          drives north-east at 10 m/s; silent 700-1500 s; reappears 8 km further on.
+#   FAR-A, FAR-B   negative control: two different emitters on one channel, identical timing.
+#                  FAR-B appears 900 s after FAR-A falls silent, about 28 km away -- beyond
+#                  any stated speed for a stationary emitter.
+#   TWIN-A, TWIN-B negative control: identical-looking emitters (same channel, same timing),
+#                  6.3 km apart, both silent from 800 s. TWIN-A moves while silent and
+#                  reappears at 1700 s at a spot equidistant from both: genuinely ambiguous.
+#
+# Synthetic and unclassified (rule 1): invented names, arbitrary frequencies, neutral origin.
+
+schema: scenario.v2
+name: reappear
+description: Emitters that fall silent long enough to be retired and reappear; two negative controls.
+seed: 3
+duration_s: 3000
+tick_s: 1
+origin: { lat: 50.0, lon: -105.0 }
+propagation: { model: log_distance, exponent: 2.5, shadowing_sigma_db: 3 }
+
+sources:
+  - { id: DF-NET, label: Synthetic DF net, kind: bearing }
+
+sensors:
+  - { id: DF-1, source_id: DF-NET, pos_m: [-16000, -12000], alt_m: 1210, bearing_sigma_deg: 1.5,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 1, p_miss: 0.05 }
+  - { id: DF-2, source_id: DF-NET, pos_m: [17000, -10000], alt_m: 1185, bearing_sigma_deg: 1.5,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 1, p_miss: 0.05 }
+  - { id: DF-3, source_id: DF-NET, pos_m: [1000, 19000], alt_m: 1240, bearing_sigma_deg: 1.5,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 1, p_miss: 0.05 }
+
+emitters:
+  - { id: STAY, label: Fixed station, path_m: [[3000, 2000]], freq_hz: 412000000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 30, on_s: 3, offset_s: 1 },
+      active_windows_s: [[0, 900], [1800, 3000]], truth: { side: unknown } }
+  - { id: MOVER, label: Mobile station, path_m: [[-10000, -7000], [8000, 7000]], speed_mps: 10,
+      freq_hz: 413500000, bandwidth_hz: 25000, activity: { type: periodic, period_s: 15, on_s: 3, offset_s: 4 },
+      active_windows_s: [[0, 700], [1500, 2400]], truth: { side: unknown } }
+  - { id: FAR-A, label: West station, path_m: [[-12000, 8000]], freq_hz: 415000000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 30, on_s: 3, offset_s: 7 },
+      active_windows_s: [[0, 600]], truth: { side: unknown } }
+  - { id: FAR-B, label: East station (same channel), path_m: [[12000, -6000]], freq_hz: 415000000,
+      bandwidth_hz: 12500, activity: { type: periodic, period_s: 30, on_s: 3, offset_s: 7 },
+      active_windows_s: [[1500, 3000]], truth: { side: unknown } }
+  - { id: TWIN-A, label: Twin station A, path_m: [[-5000, 10000, 900], [-2000, 11000]], speed_mps: 8,
+      freq_hz: 418000000, bandwidth_hz: 12500, activity: { type: periodic, period_s: 20, on_s: 3, offset_s: 2 },
+      active_windows_s: [[0, 800], [1700, 3000]], truth: { side: unknown } }
+  - { id: TWIN-B, label: Twin station B, path_m: [[1000, 12000]], freq_hz: 418000000, bandwidth_hz: 12500,
+      activity: { type: periodic, period_s: 20, on_s: 3, offset_s: 12 },
+      active_windows_s: [[0, 800]], truth: { side: unknown } }

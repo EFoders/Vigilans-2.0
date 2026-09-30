@@ -1,0 +1,85 @@
+# Vigilans, the simulated sensor hub that feeds it, and Videns watching it (ADR-0010).
+#
+#   docker compose --profile videns up --build     hub -> Vigilans -> Videns on http://127.0.0.1:8081
+#   docker compose up --build                      hub -> Vigilans; picture feed on 127.0.0.1:8091
+#   docker compose run --rm test                   lint, types and tests -- what CI runs
+#
+#   HUB_SCENARIO=cp_departure HUB_RATE=4 docker compose --profile videns up --build
+#   HUB_SCENARIOS=/path/to/editor/exports HUB_SCENARIO="My Scenario" ...    your own scenario.v2 files
+#   VIDENS_BASEMAP=none ...                        no map tiles, no third-party requests
+#
+# The hub is the only thing that simulates. Vigilans listens for observation.v1 on :8092 and
+# cannot tell the hub from real equipment: stop the hub and point a real hub or adapter at
+# http://127.0.0.1:8092/observations/v1 instead. Truth never leaves the hub (it writes
+# ./out/<scenario>.truth.jsonl for scoring, if HUB_TRUTH is set).
+#
+# Videns is built from its own checkout (VIDENS_DIR, default ../Videns) until it moves into
+# videns/ here (VIDENS_SPEC.md section 12). Its image is tagged separately so this file never
+# overwrites the one its own compose builds.
+#
+# Ports bind to loopback only: v1 has no authentication (VIDENS_SPEC.md section 15).
+
+name: vigilans
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp"]
+
+services:
+  vigilans:
+    <<: *hardening
+    build: { context: ., dockerfile: vigilans/Dockerfile, target: runtime }
+    image: vigilans:dev
+    ports:
+      - "127.0.0.1:${VIGILANS_PORT:-8091}:8091"   # picture.v0 for Videns
+      - "127.0.0.1:${VIGILANS_INGEST_PORT:-8092}:8092"   # observation.v1 in, from any hub
+    environment:
+      VIGILANS_INGEST: 0.0.0.0:8092
+      VIGILANS_LISTEN: 0.0.0.0:8091
+      # Nominal speed shown in the picture header; picture time follows the hub's stream.
+      VIGILANS_RATE: ${HUB_RATE:-1}
+      VIGILANS_RECORD: ${VIGILANS_RECORD:-}
+    volumes:
+      - ./out:/app/out
+    restart: "no"
+
+  sensor-hub:
+    <<: *hardening
+    build: { context: ., dockerfile: vigilans/Dockerfile, target: hub }
+    image: vigilans-hub:dev
+    environment:
+      HUB_VIGILANS_URL: http://vigilans:8092
+      HUB_SCENARIO: ${HUB_SCENARIO:-mixed}
+      HUB_SCENARIO_DIR: /scenarios
+      HUB_RATE: ${HUB_RATE:-1}
+      HUB_TRUTH: ${HUB_TRUTH:-}
+    volumes:
+      # Scenario files the hub can play: the repository's synthetic ones by default. Keep
+      # anything with real places or names outside the repository (rule 1) and mount it here.
+      - ${HUB_SCENARIOS:-./hub/scenarios}:/scenarios:ro
+      - ./out:/app/out
+    depends_on:
+      vigilans: { condition: service_healthy }
+    restart: "no"
+
+  videns:
+    <<: *hardening
+    profiles: [videns]
+    build: { context: "${VIDENS_DIR:-../Videns}", target: runtime }
+    image: videns:vigilans
+    # 8081, so it can run beside Videns' own compose (which takes 8080 with its mock feed).
+    ports: ["127.0.0.1:${VIDENS_PORT:-8081}:8080"]
+    environment:
+      VIDENS_FEED_UPSTREAM: http://vigilans:8091
+      VIDENS_FEED: /picture/v0
+      VIDENS_BASEMAP: ${VIDENS_BASEMAP:-street}
+    depends_on:
+      vigilans: { condition: service_healthy }
+    restart: unless-stopped
+
+  test:
+    profiles: [test]
+    build: { context: ., dockerfile: vigilans/Dockerfile, target: test }
+    image: vigilans-test:dev

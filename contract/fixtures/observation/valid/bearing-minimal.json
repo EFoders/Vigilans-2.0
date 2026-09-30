@@ -1,0 +1,21 @@
+{
+  "schema": "observation.v1",
+  "kind": "bearing",
+  "observation_id": "fx-b-0001",
+  "source_id": "SRC-DF",
+  "t": "2026-01-01T00:00:10.250Z",
+  "freq_hz": 401000000,
+  "bandwidth_hz": 12500,
+  "provenance": {
+    "adapter": "fixture-adapter",
+    "adapter_version": "0.0.1",
+    "contract": "observation.v1"
+  },
+  "sensor_lat": 50.0,
+  "sensor_lon": -105.0,
+  "bearing_deg": 47.5,
+  "bearing_uncertainty": {
+    "basis": "measured",
+    "sigma_deg": 2.0
+  }
+}

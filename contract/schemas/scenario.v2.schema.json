@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:vigilans:contract:scenario.v2",
+  "title": "Scenario",
+  "description": "scenario.v2: a synthetic world for the Vigilans simulator, as written by the Videns scenario editor. A superset of the editor's scenario.v1: every scenario.v1 file is a valid scenario.v2 file with `schema: scenario.v1`, and means the same thing. The simulator turns it into observation.v1 records; truth.* and truth_relations are for the simulator and scorer only and never reach the engine; operator.declarations are what the operator tells the engine. Positions are east/north metres from `origin` (WGS84 azimuthal equidistant); heights are metres above the WGS84 ellipsoid; frequencies in hertz; times in seconds from the start of the scenario. Specification: docs/scenario-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "duration_s", "origin", "sensors", "emitters"],
+  "properties": {
+    "schema": { "type": "string", "enum": ["scenario.v1", "scenario.v2"] },
+    "name": { "$ref": "#/definitions/text64" },
+    "description": { "type": "string", "maxLength": 4000 },
+    "seed": { "type": "integer", "default": 42 },
+    "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 86400 },
+    "tick_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 60, "default": 1 },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lat", "lon"],
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
+    "propagation": {
+      "description": "How the SIMULATOR decides what a sensor can hear. The engine has no propagation model (ADR-0005); this only generates detections and received powers.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": { "const": "log_distance" },
+        "exponent": { "type": "number", "exclusiveMinimum": 0, "default": 2.7 },
+        "shadowing_sigma_db": { "type": "number", "minimum": 0, "default": 4 }
+      }
+    },
+    "sources": {
+      "description": "v2. The reporting systems. Every sensor belongs to one (sensor.source_id); a sensor whose source is not listed belongs to an implicit bearing source of that id with default settings. A v1 file has none: all its sensors belong to source SIM.",
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/definitions/source" }
+    },
+    "sensors": { "type": "array", "minItems": 1, "maxItems": 200, "items": { "$ref": "#/definitions/sensor" } },
+    "nets": { "type": "array", "maxItems": 100, "items": { "$ref": "#/definitions/net" } },
+    "emitters": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/definitions/emitter" } },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "declarations": { "type": "array", "maxItems": 200, "items": { "$ref": "#/definitions/declaration" } }
+      }
+    },
+    "truth_relations": {
+      "description": "Which emitters really operate together. Scorer only (grouping, Phase 7).",
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/definitions/relation" }
+    }
+  },
+  "definitions": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9._:-]+$" },
+    "text64": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "label": { "type": "string", "maxLength": 64 },
+    "note": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "freq_range": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number", "exclusiveMinimum": 0 }
+    },
+    "identity": { "type": "string", "enum": ["pending", "unknown", "assumed_friend", "friend", "neutral", "suspect", "hostile"] },
+    "source": {
+      "title": "Source",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "$ref": "#/definitions/label" },
+        "kind": {
+          "description": "bearing: each sensor reports a line of bearing. position: the system reports the emitter's position (sensor.pos_m is only its receiver, for what it can hear).",
+          "type": "string",
+          "enum": ["bearing", "position"]
+        },
+        "reports_uncertainty": {
+          "description": "false: records say basis 'unreported' and carry no sigma, whatever noise the simulator applied.",
+          "type": "boolean",
+          "default": true
+        },
+        "position_sigma_m": {
+          "description": "position sources: 1-sigma error the simulator applies to each reported position, metres.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 150
+        },
+        "region_confidence": {
+          "description": "position sources: the confidence of the circular ellipse it reports (0.5 = a CEP50 source).",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1,
+          "default": 0.95
+        },
+        "freq_bias_hz": { "description": "Systematic error: every frequency this source reports is high by this much.", "type": "number", "default": 0 },
+        "clock_offset_s": { "description": "Systematic error: every time this source reports is late by this much.", "type": "number", "default": 0 },
+        "emits_coverage": {
+          "description": "Send coverage records (what each sensor listened to, and when). Without them, timing features are marked unreported.",
+          "type": "boolean",
+          "default": false
+        },
+        "fault": {
+          "description": "A deliberate adapter mistake every `every`-th record, so ingest has something to reject.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "every"],
+          "properties": {
+            "kind": { "type": "string", "enum": ["flat_sigma", "radians", "local_time", "missing_provenance"] },
+            "every": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "title": "Sensor",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "pos_m"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "$ref": "#/definitions/label" },
+        "source_id": { "description": "v2. Default: SIM.", "$ref": "#/definitions/id" },
+        "pos_m": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "alt_m": { "type": "number", "default": 0 },
+        "bearing_sigma_deg": { "description": "1-sigma bearing error the simulator applies. Required for a sensor in a bearing source.", "type": "number", "exclusiveMinimum": 0, "maximum": 90 },
+        "elevation_sigma_deg": {
+          "description": "null or absent: this sensor cannot measure elevation (the common case).",
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "freq_range_hz": { "$ref": "#/definitions/freq_range" },
+        "noise_floor_dbm": { "type": "number", "default": -110 },
+        "threshold_db": { "type": "number", "default": 6 },
+        "report_interval_s": { "type": "number", "exclusiveMinimum": 0, "default": 1 },
+        "p_miss": { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+        "p_outlier": { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+        "false_alarm_rate_hz": { "type": "number", "minimum": 0, "default": 0 },
+        "scan": {
+          "description": "v2. A scanning receiver: it listens to any one frequency for dwell_s out of every revisit_s, so it misses transmissions a continuous receiver would hear.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dwell_s", "revisit_s"],
+          "properties": {
+            "dwell_s": { "type": "number", "exclusiveMinimum": 0 },
+            "revisit_s": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "net": {
+      "title": "Net",
+      "description": "Emitters sharing a channel and taking turns: at most one transmits at a time. A non-hub member calls; the hub replies with hub_reply_prob after a turnaround.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "$ref": "#/definitions/label" },
+        "mean_tx_s": { "type": "number", "exclusiveMinimum": 0, "default": 6 },
+        "mean_gap_s": { "type": "number", "exclusiveMinimum": 0, "default": 20 },
+        "hub_reply_prob": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8 },
+        "turnaround_s": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0 } }
+      }
+    },
+    "waypoint": {
+      "description": "[east_m, north_m] or [east_m, north_m, hold_s]: v2 adds an optional wait at the waypoint before moving on.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "activity": {
+      "title": "Activity",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["continuous", "periodic", "bursty", "net"] },
+        "period_s": { "type": "number", "exclusiveMinimum": 0 },
+        "on_s": { "type": "number", "exclusiveMinimum": 0 },
+        "offset_s": { "description": "v2. periodic: phase of the first transmission.", "type": "number", "minimum": 0 },
+        "mean_on_s": { "type": "number", "exclusiveMinimum": 0 },
+        "mean_off_s": { "type": "number", "exclusiveMinimum": 0 },
+        "net_id": { "$ref": "#/definitions/id" },
+        "hub": { "type": "boolean", "default": false }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "periodic" } } }, "then": { "required": ["period_s", "on_s"] } },
+        { "if": { "properties": { "type": { "const": "bursty" } } }, "then": { "required": ["mean_on_s", "mean_off_s"] } },
+        { "if": { "properties": { "type": { "const": "net" } } }, "then": { "required": ["net_id"] } }
+      ]
+    },
+    "emitter": {
+      "title": "Emitter",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path_m", "freq_hz", "bandwidth_hz"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "label": { "$ref": "#/definitions/label" },
+        "truth": {
+          "description": "What it really is. Scorer only; never in an observation.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "class_id": { "type": ["string", "null"], "maxLength": 128 },
+            "role_id": { "type": ["string", "null"], "maxLength": 128 },
+            "side": { "type": ["string", "null"], "enum": ["friend", "hostile", "neutral", "civilian", "unknown", null] }
+          }
+        },
+        "path_m": { "type": "array", "minItems": 1, "maxItems": 500, "items": { "$ref": "#/definitions/waypoint" } },
+        "alt_m": { "type": "number", "default": 0 },
+        "speed_mps": { "type": "number", "minimum": 0, "default": 0 },
+        "loop": { "type": "boolean", "default": false },
+        "freq_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "bandwidth_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "eirp_dbm": { "type": "number", "default": 40 },
+        "activity": { "$ref": "#/definitions/activity" },
+        "active_windows_s": {
+          "description": "v2. When it is switched on at all: [[start_s, stop_s], ...]. Absent: the whole scenario.",
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0 } }
+        },
+        "source_claim": {
+          "description": "v2. A self-identification broadcast (e.g. Remote ID) that sources can decode; carried in its observations as the source's claim (ADR-0006).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scheme", "category"],
+          "properties": {
+            "scheme": { "type": "string", "enum": ["remote_id", "ads_b", "ais", "other"] },
+            "category": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "claimed_id": { "$ref": "#/definitions/id" }
+          }
+        }
+      }
+    },
+    "declaration": {
+      "title": "OperatorDeclaration",
+      "description": "Something the operator tells the engine, and takes responsibility for. Becomes the run's [sources.<id>] configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id"],
+      "properties": {
+        "source_id": { "$ref": "#/definitions/id" },
+        "label": { "$ref": "#/definitions/label" },
+        "affiliation": { "$ref": "#/definitions/identity" },
+        "assumed_bearing_sigma_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "assumed_elevation_sigma_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "assumed_position_sigma_m": { "type": "number", "exclusiveMinimum": 0 },
+        "assumption_note": { "$ref": "#/definitions/note" }
+      }
+    },
+    "relation": {
+      "title": "TruthRelation",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "members"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["controller/controlled", "superior/subordinate", "peer", "co-sited"] },
+        "members": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["emitter_id"],
+            "properties": {
+              "emitter_id": { "$ref": "#/definitions/id" },
+              "role": { "type": "string", "maxLength": 64 }
+            }
+          }
+        },
+        "note": { "$ref": "#/definitions/note" }
+      }
+    }
+  }
+}

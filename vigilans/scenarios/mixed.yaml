@@ -1,0 +1,62 @@
+# Three sources, both observation flavours, all three uncertainty stories.
+#
+#   DF-NET     bearings from three sensors, measured 1-sigma uncertainty.
+#   LEGACY-DF  bearings from two sensors that report NO uncertainty. Every 40th record has
+#              a flat, unlabelled `bearing_sigma_deg` -- a real adapter mistake -- which
+#              ingest must reject loudly. Run with config/assumed.toml to see an operator's
+#              declared assumption applied instead of the unreported basis.
+#   GEO-SYS    an integrated system reporting emitter positions with 95 % ellipses.
+#
+# Synthetic and unclassified (rule 1): arbitrary frequencies, invented names, the
+# prototype's neutral origin. Laid out ~40 km wide, so a planar-angle bearing error would
+# be visible rather than hiding at the frame centre.
+
+name: mixed
+description: Two DF nets (one without uncertainty) and a position-reporting system over four emitters.
+origin: { lat: 50.0, lon: -105.0 }
+duration_s: 600
+
+sources:
+  - source_id: DF-NET
+    label: Synthetic DF net
+    kind: bearing
+    affiliation: friend
+    bearing_sigma_deg: 2.0
+    reports_uncertainty: true
+    max_range_m: 40000
+    p_detect: 0.9
+    sensors:
+      - { sensor_id: DF-1, east_m: -15000, north_m: -12000, alt_m: 1210 }
+      - { sensor_id: DF-2, east_m: 16000, north_m: -9000, alt_m: 1185 }
+      - { sensor_id: DF-3, east_m: 2000, north_m: 18000, alt_m: 1240 }
+
+  - source_id: LEGACY-DF
+    label: Legacy DF pair (no uncertainty reported)
+    kind: bearing
+    affiliation: friend
+    bearing_sigma_deg: 4.0          # the simulator's true noise; this source never reports it
+    reports_uncertainty: false
+    max_range_m: 30000
+    p_detect: 0.8
+    fault_every: 40
+    fault: flat_sigma
+    sensors:
+      - { sensor_id: L-1, east_m: -20000, north_m: 8000 }
+      - { sensor_id: L-2, east_m: 21000, north_m: 12000 }
+
+  - source_id: GEO-SYS
+    label: Synthetic geolocating system
+    kind: position
+    position_sigma_m: 120.0
+    reports_uncertainty: true
+    p_detect: 0.7
+
+emitters:
+  - { emitter_id: E1, east_m: 1500, north_m: 2500, freq_hz: 401000000, bandwidth_hz: 12500,
+      period_s: 20, duration_s: 2.0, offset_s: 3 }
+  - { emitter_id: E2, east_m: -6000, north_m: 7000, freq_hz: 403500000, bandwidth_hz: 25000,
+      period_s: 35, duration_s: 4.5, offset_s: 11 }
+  - { emitter_id: E3, east_m: 8000, north_m: -4000, east_mps: -9.0, north_mps: 6.0,
+      freq_hz: 406250000, bandwidth_hz: 12500, period_s: 15, duration_s: 1.5, offset_s: 7 }
+  - { emitter_id: E4, east_m: -2000, north_m: -9000, freq_hz: 409750000, bandwidth_hz: 200000,
+      period_s: 10, duration_s: 0.8, offset_s: 1, start_s: 120, stop_s: 420 }

@@ -1,0 +1,62 @@
+# Every configuration key, with its default. Copy to vigilans.toml (git-ignored) and edit.
+#
+#   vigilans run --config vigilans.toml
+#
+# Precedence, highest first: command-line flag, environment variable (VIGILANS_*), this
+# file, default. The run header prints where each setting came from. Unknown keys are
+# errors. Relative paths are relative to this file.
+
+[run]
+# id = "mixed-demo"            # default: <scenario>-<UTC timestamp>, unique per run
+seed = 1
+rate = 1                        # picture seconds per wall second; "max" runs offline
+step_s = 1.0
+# duration_s = 600              # stop after this much picture time
+# origin = { lat = 50.0, lon = -105.0 }   # default: from the scenario or first observation
+
+[[inputs]]
+kind = "sim"
+scenario = "mixed"              # a name in vigilans/scenarios/, or a path
+
+# [[inputs]]
+# kind = "file"
+# path = "../../out/mixed.observations.jsonl"
+
+[picture]
+listen = "127.0.0.1:8091"       # "none" to serve nothing
+# record = "../../out/run.picture.jsonl"
+snapshot_every_s = 30
+
+[library]
+path = "../libraries/synthetic.yaml"   # "none" for no library (everything unclassified)
+private = false                        # true requires a path OUTSIDE the repository
+
+# Per-source declarations, keyed by the source_id observations carry. Each one is an
+# operator taking responsibility for something, and is recorded as such.
+# [sources.EXAMPLE-SRC]
+# label = "Example DF net"
+# affiliation = "friend"                    # a MIL-STD-2525 standard identity
+# assumed_bearing_sigma_deg = 5.0           # applied ONLY where the source reports none
+# assumed_elevation_sigma_deg = 3.0
+# assumed_position_sigma_m = 250.0
+# assumption_note = "Why this number: vendor sheet, site survey, ..."   # required with any assumed_*
+
+# Offline maps (ADR-0014). Any layer may be left out: the features it enables (on-road,
+# on-water, height above ground) are then unavailable, never defaulted. The synthetic maps
+# are invented; bring your own files for a real area, kept outside the repository.
+# [maps]
+# roads = "../maps/synthetic/roads.geojson"       # GeoJSON LineStrings, WGS84
+# water = "../maps/synthetic/water.geojson"       # GeoJSON Polygons, WGS84
+# terrain = "../maps/synthetic/terrain.asc"       # ESRI ASCII grid, lat/lon cells, metres
+# terrain_heights = "ellipsoid"                   # or "geoid" (then geoid_undulation_m = …)
+
+# Operator corrections: confirm or reject a classification, or declare an entity's
+# affiliation, during a run. Reread whenever it changes. Format: corrections.example.toml.
+# [corrections]
+# path = "corrections.toml"
+
+# Re-identification (ADR-0016). Stated defaults, not calibrated; publish_threshold above 1
+# keeps re-identification internal (it still never merges entities).
+# [reid]
+# publish_threshold = 0.5
+# memory_s = 21600

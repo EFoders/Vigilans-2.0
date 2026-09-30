@@ -1,0 +1,7 @@
+{"type": "FeatureCollection", "description": "INVENTED road network for tests and demos. Not a real place.", "bbox": [-105.208634, 49.864954, -104.790196, 50.134666], "features": [
+  {"type": "Feature", "id": "road-a", "properties": {"name": "Road A", "class": "main"}, "geometry": {"type": "LineString", "coordinates": [[-105.139504, 50.008907], [-105.041855, 50.013478], [-104.9721, 50.007189], [-104.916321, 49.995475], [-104.860548, 49.990926]]}},
+  {"type": "Feature", "id": "road-b", "properties": {"name": "Road B", "class": "main"}, "geometry": {"type": "LineString", "coordinates": [[-104.986078, 49.910094], [-104.97909, 49.973027], [-104.9721, 50.007189], [-104.965098, 50.044947], [-104.958078, 50.089896]]}},
+  {"type": "Feature", "id": "road-c", "properties": {"name": "Road C", "class": "minor"}, "geometry": {"type": "LineString", "coordinates": [[-105.041855, 50.013478], [-105.083781, 50.053912], [-105.11177, 50.08086]]}},
+  {"type": "Feature", "id": "road-d", "properties": {"name": "Road D", "class": "minor"}, "geometry": {"type": "LineString", "coordinates": [[-104.97909, 49.973027], [-104.916375, 49.964008], [-104.888563, 49.937013]]}},
+  {"type": "Feature", "id": "road-e", "properties": {"name": "Road E", "class": "track"}, "geometry": {"type": "LineString", "coordinates": [[-104.965098, 50.044947], [-104.909229, 50.058402], [-104.874341, 50.049379]]}}
+]}

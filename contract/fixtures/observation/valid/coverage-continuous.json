@@ -1,0 +1,18 @@
+{
+  "schema": "observation.v1",
+  "kind": "coverage",
+  "observation_id": "fx-c-0001",
+  "source_id": "SRC-DF",
+  "sensor_id": "DF-1",
+  "t_start": "2026-01-01T00:00:00Z",
+  "t_end": "2026-01-01T00:10:00Z",
+  "band": {
+    "min_hz": 400000000,
+    "max_hz": 412000000
+  },
+  "provenance": {
+    "adapter": "fixture-adapter",
+    "adapter_version": "0.0.1",
+    "contract": "observation.v1"
+  }
+}

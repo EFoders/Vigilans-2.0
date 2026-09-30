@@ -1,0 +1,28 @@
+{
+  "reason": "A covariance is positive semi-definite; this one describes no region at all.",
+  "expect": "not positive semi-definite",
+  "message": {
+    "schema": "observation.v1",
+    "kind": "position",
+    "observation_id": "fx-p-0001",
+    "source_id": "SRC-GEO",
+    "t": "2026-01-01T00:00:12Z",
+    "freq_hz": 403500000,
+    "bandwidth_hz": 25000,
+    "provenance": {
+      "adapter": "fixture-adapter",
+      "adapter_version": "0.0.1",
+      "contract": "observation.v1"
+    },
+    "lat": 50.021,
+    "lon": -104.973,
+    "position_uncertainty": {
+      "basis": "measured",
+      "cov_en_m2": {
+        "ee": 100.0,
+        "en": 500.0,
+        "nn": 100.0
+      }
+    }
+  }
+}

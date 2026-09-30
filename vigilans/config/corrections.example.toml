@@ -1,0 +1,42 @@
+# Operator corrections (ADR-0015). Copy it somewhere outside the repository, name it in the
+# run configuration, and edit it while Vigilans runs: it is read at start and re-read whenever
+# the file changes. Everything here is synthetic.
+#
+# Each entry is about ONE entity in ONE run. Entity ids (E-00003) are only unique within a
+# run, so every entry sits under the run id shown in the run header and in Videns. Entries
+# for other runs are ignored, and the run says so in a notice.
+#
+# Keys per entity (unknown keys are errors naming this file and the table):
+#   confirm      one class id from the loaded library. The class is worded "likely" whatever
+#                its computed probability; the number shown stays the classifier's own, and
+#                the reasons say it was confirmed, by whom, why, and where (this file + table).
+#   reject       one class id or a list. Rejecting a category rejects everything under it.
+#                The rest of the probability is renormalised over the remaining classes and
+#                "none of the above"; the entity may become unclassified, and says why.
+#   affiliation  a MIL-STD-2525 standard identity: pending, unknown, assumed_friend, friend,
+#                neutral, suspect, hostile. Replaces the library's affiliation (operator, then
+#                library, then default). The symbol's frame follows it.
+#   note         REQUIRED: why. It travels with the correction into the picture.
+#   by           optional: who.
+#
+# At least one of confirm, reject or affiliation. A correction does not follow an entity into
+# a split or a merge: it is about that entity id. Corrections are recorded in the picture as
+# notices and in every reason they add; they do not teach Vigilans anything for later runs.
+#
+# If the file becomes invalid while a run is going, the run reports the error and keeps the
+# last good corrections. To withdraw a correction, delete its entry (not the whole file).
+# Quote ids that contain dots. Save as UTF-8.
+
+[runs."mixed-demo".entities."E-00003"]
+confirm = "syn.wideband_link"
+note = "Matches the synthetic range schedule for this time slot."
+by = "watch 2"
+
+[runs."mixed-demo".entities."E-00005"]
+reject = ["syn.uas_control"]
+note = "No airborne activity was scheduled on the synthetic range."
+by = "watch 2"
+
+[runs."mixed-demo".entities."E-00007"]
+affiliation = "neutral"
+note = "The synthetic exercise plan lists this transmitter as a civil broadcast stand-in."

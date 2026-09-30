@@ -1,0 +1,58 @@
+# Three sources, both observation flavours, all three uncertainty stories (scenario.v2).
+#
+#   DF-NET     bearings from three sensors, measured uncertainty.
+#   LEGACY-DF  bearings that report NO uncertainty; every 40th record has a flat, unlabelled
+#              bearing_sigma_deg -- a real adapter mistake -- which Vigilans must reject.
+#   GEO-SYS    an integrated system reporting emitter positions with 95 % ellipses.
+#
+# Synthetic and unclassified (rule 1): invented names, arbitrary frequencies, neutral origin.
+
+schema: scenario.v2
+name: mixed
+description: Two DF nets (one without uncertainty) and a position-reporting system over four emitters.
+seed: 1
+duration_s: 600
+tick_s: 1
+origin: { lat: 50.0, lon: -105.0 }
+propagation: { model: log_distance, exponent: 2.5, shadowing_sigma_db: 3 }
+
+sources:
+  - { id: DF-NET, label: Synthetic DF net, kind: bearing }
+  - { id: LEGACY-DF, label: Legacy DF pair (no uncertainty reported), kind: bearing,
+      reports_uncertainty: false, fault: { kind: flat_sigma, every: 40 } }
+  - { id: GEO-SYS, label: Synthetic geolocating system, kind: position,
+      position_sigma_m: 120, region_confidence: 0.95 }
+
+sensors:
+  - { id: DF-1, source_id: DF-NET, pos_m: [-15000, -12000], alt_m: 1210, bearing_sigma_deg: 2,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: DF-2, source_id: DF-NET, pos_m: [16000, -9000], alt_m: 1185, bearing_sigma_deg: 2,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: DF-3, source_id: DF-NET, pos_m: [2000, 18000], alt_m: 1240, bearing_sigma_deg: 2,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5 }
+  - { id: L-1, source_id: LEGACY-DF, pos_m: [-20000, 8000], bearing_sigma_deg: 4,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5, p_miss: 0.2 }
+  - { id: L-2, source_id: LEGACY-DF, pos_m: [21000, 12000], bearing_sigma_deg: 4,
+      freq_range_hz: [300000000, 3000000000], report_interval_s: 5, p_miss: 0.2 }
+  - { id: GEO-RX, source_id: GEO-SYS, pos_m: [0, 0], freq_range_hz: [300000000, 3000000000],
+      report_interval_s: 5, p_miss: 0.3 }
+
+emitters:
+  - { id: E1, label: Fixed net station, path_m: [[1500, 2500]], freq_hz: 401000000, bandwidth_hz: 12500,
+      eirp_dbm: 40, activity: { type: periodic, period_s: 20, on_s: 2, offset_s: 3 },
+      truth: { class_id: syn.narrowband_net, side: unknown } }
+  - { id: E2, label: Second net station, path_m: [[-6000, 7000]], freq_hz: 403500000, bandwidth_hz: 25000,
+      eirp_dbm: 40, activity: { type: periodic, period_s: 35, on_s: 4.5, offset_s: 11 },
+      truth: { class_id: syn.narrowband_net, side: unknown } }
+  - { id: E3, label: Mobile station, path_m: [[8000, -4000], [2600, -400]], speed_mps: 10.8,
+      freq_hz: 406250000, bandwidth_hz: 12500, eirp_dbm: 40,
+      activity: { type: periodic, period_s: 15, on_s: 1.5, offset_s: 7 },
+      truth: { class_id: syn.mobile_net, side: unknown } }
+  - { id: E4, label: Intermittent data link, path_m: [[-2000, -9000]], freq_hz: 409750000, bandwidth_hz: 200000,
+      eirp_dbm: 40, activity: { type: periodic, period_s: 10, on_s: 1, offset_s: 1 },
+      active_windows_s: [[120, 420]], truth: { class_id: syn.wideband_link, side: unknown } }
+
+operator:
+  declarations:
+    - { source_id: DF-NET, affiliation: friend }
+    - { source_id: LEGACY-DF, affiliation: friend }
