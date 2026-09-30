@@ -91,13 +91,6 @@ docs/adr/        decisions
 compose.yaml     vigilans; videns (profile); test (profile)
 ```
 
-## Development
-
-```bash
-uv run pytest -q && uv run ruff check . && uv run ruff format --check . && uv run mypy
-docker compose run --rm test        # the same, in a container, as CI runs it
-```
-
 ## License
 
 Apache-2.0.
